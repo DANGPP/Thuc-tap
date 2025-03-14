@@ -1,0 +1,35 @@
+
+services:
+  flask_app:
+    container_name: flask_app
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=host.docker.internal  # Truy cập PostgreSQL trên máy local
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=1
+      - DB_NAME=postgres
+    restart: unless-stopped  # Tự động khởi động lại nếu có lỗi
+
+  flask_db:
+    container_name: flask_db
+    image: postgres:16  
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=1
+      - POSTGRES_DB=postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped  # Tránh dừng container do lỗi nhỏ
+
+volumes:
+  pgdata: {}
