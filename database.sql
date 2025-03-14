@@ -4,9 +4,11 @@ CREATE TABLE users (
     name VARCHAR(255) NOT NULL,
     email_teams VARCHAR(255) NOT NULL,
     sdt VARCHAR(255) NOT NULL,
+    ten_nh VARCHAR(255),
+    stk VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    qr_code BYTEA
+    update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    
 );
 
 
