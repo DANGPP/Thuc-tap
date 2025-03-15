@@ -1,7 +1,8 @@
 from flask import Flask
-from config import Config
+
+from configs.config import Config
 from extensions import db
-from models import User
+from models.models import User
 from routes import register_routes
 
 app = Flask(__name__)

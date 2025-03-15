@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, make_response
 from extensions import db
-from models import User
+from models.models import User
 from sqlalchemy.sql import text
 
 user_bp = Blueprint("user_b", __name__) # Tên Blueprint:"user_bp"
