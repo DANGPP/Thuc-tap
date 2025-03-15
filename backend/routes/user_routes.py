@@ -1,73 +1,93 @@
-from flask import Blueprint, jsonify, request, make_response
+from flask import Blueprint,jsonify,request
+from models.models import Users
 from extensions import db
-from models.models import User
-from sqlalchemy.sql import text
+user_bp = Blueprint("user_bp",__name__)
 
-user_bp = Blueprint("user_b", __name__) # Tên Blueprint:"user_bp"
 
-# Kiểm tra kết nối database
-@user_bp.route("/health", methods=["GET"])
-def health_check():
-    try:
-        db.session.execute(text("SELECT 1"))
-        return jsonify({"status": "healthy", "database": "connected"}), 200
-    except Exception as e:
-        return jsonify({"status": "unhealthy", "database": f"not connected: {str(e)}"}), 500
-
-# Lấy danh sách users
-@user_bp.route("/users", methods=["GET"])
+#1. lấy thông tin của toàn bộ người dùng:
+@user_bp.route("/users", methods = ["GET"])
 def get_users():
-    users = User.query.all()
+    users = Users.query.all()
     return jsonify([user.to_dict() for user in users])
 
-# Lấy thông tin chi tiết của một user theo ID
-@user_bp.route("/users/<int:id>", methods=["GET"])
-def get_user(id):
-    user = User.query.get(id)
-    if not user:
-        return jsonify({"error": "User không tồn tại"}), 404
+#2. lấy thông tin chi tiết của 1 người dùng
+@user_bp.route("/users/<int:user_id>", methods =["GET"])
+def get_user_id(user_id):
+    user = Users.query.get(user_id)
+    return jsonify(user.to_dict())
 
-    return jsonify(user.to_dict()), 200
-
-# Thêm user mới
+#3. Thêm users
 @user_bp.route("/users", methods=["POST"])
-def create_user():
-    data = request.get_json()
+def post_user():
+    data_list = request.get_json()
 
-    if not data or "name" not in data or "email_teams" not in data:
-        return make_response(jsonify({"error": "Thiếu thông tin name hoặc email_teams"}), 400)
+    if not isinstance(data_list, list):
+        return jsonify({"error": "Input không phải list"}), 400
 
-    new_user = User(name=data["name"], email_teams=data["email_teams"], sdt=data.get("sdt"))
-    db.session.add(new_user)
-    db.session.commit()
+    users_created = []  # Lưu danh sách user được tạo
+    users_not_created = []
+    for data in data_list:
+        if 'name' not in data or 'email_teams' not in data or "sdt" not in data or 'ten_nh' not in data or 'stk' not in data:
+            users_not_created.append(data)
+            continue  # Bỏ qua nếu thiếu thông tin
 
-    return jsonify(new_user.to_dict()), 201
+        try:
+            new_user = Users(
+                name=data['name'],
+                email_teams=data['email_teams'],
+                sdt=data['sdt'],
+                ten_nh=data['ten_nh'],
+                stk=data['stk']
+            )
+            db.session.add(new_user)
+            users_created.append(new_user)
+        except Exception as ex:
+            print(f"Lỗi khi thêm user: {ex}")
+            continue  # Bỏ qua user bị lỗi
 
-# Cập nhật user
-@user_bp.route("/users/<int:id>", methods=["PUT"])
-def update_user(id):
-    user = User.query.get(id)
+    try:
+        db.session.commit()
+        return jsonify({
+            "message": "Danh sách user đã thêm",
+            "users": [user.to_dict() for user in users_created],
+            "message_error": "Danh sách users chưa được thêm",
+            "error_uesrs": [user for user in users_not_created]
+        }), 201
+    except Exception as ex:
+        db.session.rollback()
+        return jsonify({
+            "error": str(ex),
+            "users_created": [user.to_dict() for user in users_created],
+            "error_users": users_not_created
+        }), 500
+#4. Xóa users
+@user_bp.route("/users/<int:user_id>", methods=["DELETE"])
+def delete_user(user_id):
+    user = Users.query.get(user_id)
     if not user:
-        return jsonify({"error": "User không tồn tại"}), 404
-
-    data = request.get_json()
-    if "name" in data:
-        user.name = data["name"]
-    if "email_teams" in data:
-        user.email_teams = data["email_teams"]
-    if "sdt" in data:
-        user.sdt = data["sdt"]
-
-    db.session.commit()
-    return jsonify(user.to_dict()), 200
-
-# Xóa user
-@user_bp.route("/users/<int:id>", methods=["DELETE"])
-def delete_user(id):
-    user = User.query.get(id)
+        return jsonify({"error":"Không có user để xóa"})
+    try:
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({"message":"Đã xóa thành công"})
+    except Exception as ex:
+        return jsonify({"error": str(ex)})
+    
+#5. Chỉnh sửa người dùng
+@user_bp.route("/users/<int:user_id>", methods=["PUT"])
+def adjust_user(user_id):
+    user = Users.query.get(user_id)
     if not user:
-        return jsonify({"error": "User không tồn tại"}), 404
-
-    db.session.delete(user)
-    db.session.commit()
-    return jsonify({"message": "User đã bị xóa"}), 200
+        return jsonify({"error":"Không tồn tại user."})
+    data = request.get_json()
+    user.name=data.get('name',user.name)
+    user.email_teams=data.get('email_teams',user.email_teams)
+    user.sdt=data.get('sdt',user.sdt)
+    user.ten_nh=data.get('ten_nh',user.ten_nh)
+    user.stk=data.get('stk',user.stk)
+    try:
+        db.session.commit()
+        return jsonify({"message": "Cập nhật thành công", "user": user.to_dict()}), 200
+    except Exception as ex:
+        db.session.rollback()
+        return jsonify({"error": str(ex)}), 500  
