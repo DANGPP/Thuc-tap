@@ -134,7 +134,7 @@ def post_user_to_event(event_id):
             continue
 
         # Kiểm tra xem user đã có trong event chưa
-        existing_entry = Event_User.query.filter_by(event_id=event_id, user_id=user_id)
+        existing_entry = Event_User.query.filter_by(event_id=event_id, user_id=user_id).first()
         if existing_entry:
             not_added_users.append({
                 "user_id": user_id,
