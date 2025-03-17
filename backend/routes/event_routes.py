@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, make_response
 from extensions import db
-from models.models import Events
+from models.models import Events,Event_User,Users
 from datetime import datetime
 
 event_bp = Blueprint("event_bp", __name__)
@@ -103,4 +103,150 @@ def adjust_event_id(event_id):
         return jsonify({"da cap nhat thanh cong ":events.to_dict()})
     except Exception as ex:
         return jsonify(str(ex))
+
+#6. Thêm người vào 1 sự kiện
+@event_bp.route("/events/<int:event_id>/users", methods=["POST"])
+def post_user_to_event(event_id):
+    event_check = Events.query.get(event_id)
+    if not event_check:
+        return jsonify({
+            "error":"không tìm thấy event" 
+        }),404
+    data_user_list = request.get_json()
+
+    # Kiểm tra xem data có phải là danh sách không
+    if not isinstance(data_user_list, list):
+        return jsonify({"error": "Không phải là List user"}), 400
+
+    added_users = []
+    not_added_users = []
+
+    for user in data_user_list:
+        user_id = user.get("user_id")
+        bonusthem = user.get("bonusthem", "0")  
+        # Kiểm tra user có tồn tại không
+        User = Users.query.get(user_id)
+        if not User:
+            not_added_users.append({
+                "user_id": user_id,
+                "error": "Người dùng không tồn tại"
+            })
+            continue
+
+        # Kiểm tra xem user đã có trong event chưa
+        existing_entry = Event_User.query.filter_by(event_id=event_id, user_id=user_id)
+        if existing_entry:
+            not_added_users.append({
+                "user_id": user_id,
+                "error": "Người dùng đã tham gia sự kiện"
+            })
+            continue
+
+        # Thêm user vào event
+        new_event_user = Event_User(
+            event_id=event_id,
+            user_id=User.id,
+            bonusthem=bonusthem,
+            bill_due=0,
+            status="Paid"
+        )
+        db.session.add(new_event_user)
+        
+        added_users.append({
+            "user_id": User.id,
+            "event_id": event_id
+        })
+
+    try:
+        db.session.commit()
+        return jsonify({
+            "added_users": added_users,
+            "not_added_users": not_added_users
+        }), 201
+    except Exception as ex:
+        db.session.rollback()
+        return jsonify({"error": str(ex)}), 500
+    
+
+#7. Lấy danh sách users từ sự kiện
+@event_bp.route("/events/<int:event_idd>/users", methods=["GET"])
+def get_users_in_event(event_idd):
+    # Kiểm tra xem sự kiện có tồn tại không
+    event = Events.query.get(event_idd)
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+
+    # Lấy sự kiện theo event_id
+    event_users = Event_User.query.filter_by(event_id = event_idd).all()
+    
+    if not event_users:
+        return jsonify({
+            "event_id": event.id,
+            "event_name": event.name,
+            "total_users": 0,
+            "users": ["Chưa có ai tham gia sự kiện"]
+        }), 200
+
+    users_list = []
+    
+    for event_user in event_users:
+        user = Users.query.get(event_user.user_id)
+        if user:
+            users_list.append({
+                "user_id": user.id,
+                "name": user.name,
+            })
+
+    return jsonify({
+        "event_id": event.id,
+        "event_name": event.name,
+        "total_users": len(users_list),
+        "users": users_list
+    }), 200
+
+#8. lấy danh sách chi tiết user từ sự kiện nhất định.
+@event_bp.route("/events/<int:event_id>/users/<int:user_id>", methods=["DELETE"])
+def delete_detail_user_from_detail_event(event_id,user_id):
+    event =Events.query.get(event_id)
+    if not event:
+        return jsonify({"error":"Không tìm thấy event"}),404
+    user_check = Users.query.get(user_id)
+    if not user_check:
+        return jsonify({"Message":"Không tìm thấy user"})
+    Ev_user = Event_User.query.filter_by(event_id=event_id).all()
+    if not Ev_user :
+        return jsonify({"Message":"Chưa ai tham gia sự kiện"})
+    user = Event_User.query.filter_by(event_id=event_id,user_id=user_id).first()
+    if not user:
+        return jsonify({"Message": "Người dùng không tham gia sự kiện"})
+    
+    db.session.delete(user)
+    try:
+        db.session.commit()
+        return jsonify({"Message": "Đã xóa thành công"})
+    except Exception as ex:
+        db.session.rollback()
+        return jsonify({
+        "error": str(ex)
+        })
+        
+#9. Xóa người dùng tham gia 1 sự kiện.
+@event_bp.route("/events/<int:event_id>/users/<int:user_id>", methods=["GET"])
+def get_detail_user_from_detail_event(event_id,user_id):
+    event =Events.query.get(event_id)
+    if not event:
+        return jsonify({"error":"Không tìm thấy event"}),404
+    user_check = Users.query.get(user_id)
+    if not user_check:
+        return jsonify({"Message":"Không tìm thấy user"})
+    Ev_user = Event_User.query.filter_by(event_id=event_id).all()
+    if not Ev_user :
+        return jsonify({"Message":"Chưa ai tham gia sự kiện"})
+    user = Event_User.query.filter_by(event_id=event_id,user_id=user_id).first()
+    if not user:
+        return jsonify({"Message": "Người dùng không tham gia sự kiện"})
+    return jsonify({
+        "event_id": event_id,
+        "user": user_check.to_dict()
+    })
     

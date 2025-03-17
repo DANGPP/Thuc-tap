@@ -42,3 +42,28 @@ class Users(db.Model):
             "created_at": self.created_at.strftime('%H:%M:%S %Y-%m-%d'),
             "update_at": self.update_at.strftime('%H:%M:%S %Y-%m-%d')
         }
+
+class Event_User(db.Model):
+    __tablename__ = "event_user"
+    id = db.Column(db.Integer,primary_key= True)
+    event_id = db.Column(db.Integer,db.ForeignKey("events.id"),nullable=False )
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"),nullable = False)
+    bonusthem = db.Column(db.String(255),nullable = False)
+    bill_due = db.Column(db.Integer, nullable = False)
+    status = db.Column(db.String(255), nullable = False )
+    created_at = db.Column(db.DateTime, default = datetime.utcnow)
+    
+     # Thiết lập quan hệ với bảng Events và Users
+    event = db.relationship("Events", backref=db.backref("event_users", lazy=True))
+    user = db.relationship("Users", backref=db.backref("event_users", lazy=True))
+    
+    def to_dict(self):
+        return{
+            "id": self.id,
+            "event_id": self.event_id,
+            "user_id": self.user_id,
+            "bonusthem": self.bonusthem,
+            "bill_due": self.bill_due,
+            "status": self.status,
+            "created_at": self.created_at.strftime('%H:%M:%S %Y-%m-%d')
+        }     
