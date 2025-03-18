@@ -7,19 +7,47 @@ class Events(db.Model):
     id = db.Column(db.Integer, primary_key= True)
     name = db.Column(db.String(255),nullable=False)
     date = db.Column(db.Date, nullable=False)
-    total_bill = db.Column(db.Numeric(10, 2), nullable=True)
+    total_bill = db.Column(db.Integer, nullable = True)
     created_at = db.Column(db.DateTime, default = datetime.utcnow)
     update_at = db.Column(db.DateTime, default = datetime.utcnow, onupdate = datetime.utcnow)
-    
+    tong_thu = db.Column(db.Integer, nullable = True)
+    tien_thua = db.Column(db.Integer, nullable = True)
+    id_user_payments = db.Column(db.Integer,db.ForeignKey("users.id"),nullable = False )
+    # thêm kết nối:
+    User_who_paid = db.relationship("Users", backref=db.backref("Events", lazy=True))
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
-            "date": self.date.strftime("%d-%m-%Y") if self.date else None,
-            "total_bill": float(self.total_bill) if self.total_bill is not None else None, # vì json không hỗ trọ numeric của postgres
-            "created_at": self.created_at.strftime("%H:%M:%S %d-%m-%Y") if self.created_at else None,
-            "update_at": self.update_at.strftime("%H:%M:%S %d-%m-%Y") if self.update_at else None,
-        }      
+            "date": self.date.strftime('%d-%m-%Y') if self.date else None,
+            "total_bill": self.total_bill,
+            "created_at": self.created_at.strftime('%H:%M:%S %Y-%m-%d') if self.created_at else None,
+            "update_at": self.update_at.strftime('%H:%M:%S %Y-%m-%d') if self.update_at else None,
+            "id_user_payments": self.id_user_payments,
+            "tong_thu": self.tong_thu if self.tong_thu else 0,
+            "tien_thua": self.tien_thua if self.tien_thua else 0
+        }
+
+    __tablename__="events"
+    id = db.Column(db.Integer, primary_key= True)
+    name = db.Column(db.String(255),nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    total_bill = db.Column(db.Numeric(10, 2), nullable=True)
+    created_at = db.Column(db.DateTime, default = datetime.utcnow)
+    update_at = db.Column(db.DateTime, default = datetime.utcnow, onupdate = datetime.utcnow)
+    id_user_payments = db.Column(db.Integer,db.ForeignKey("users.id"),nullable = False )
+    # thêm kết nối:
+    User_who_paid = db.relationship("Users", backref=db.backref("Events", lazy=True))
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "date": self.date.strftime('%d-%m-%Y') if self.date else None,
+            "total_bill": self.total_bill,
+            "created_at": self.created_at.strftime('%H:%M:%S %Y-%m-%d') if self.created_at else None,
+            "update_at": self.update_at.strftime('%H:%M:%S %Y-%m-%d') if self.update_at else None,
+            "id_user_payments": self.id_user_payments
+        }     
 
 class Users(db.Model):
     __tablename__ = "users"
@@ -52,6 +80,7 @@ class Event_User(db.Model):
     bill_due = db.Column(db.Integer, nullable = False)
     status = db.Column(db.String(255), nullable = False )
     created_at = db.Column(db.DateTime, default = datetime.utcnow)
+    id_user_payments = db.Column(db.Integer,nullable = True )
     
      # Thiết lập quan hệ với bảng Events và Users
     event = db.relationship("Events", backref=db.backref("event_users", lazy=True))
@@ -65,5 +94,6 @@ class Event_User(db.Model):
             "bonusthem": self.bonusthem,
             "bill_due": self.bill_due,
             "status": self.status,
-            "created_at": self.created_at.strftime('%H:%M:%S %Y-%m-%d')
+            "created_at": self.created_at.strftime('%H:%M:%S %Y-%m-%d'),
+            "id_who_payments": self.id_user_payments
         }     
