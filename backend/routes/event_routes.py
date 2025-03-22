@@ -39,7 +39,8 @@ def post_events():
         new_event = Events(
                 name=data["name"],
                 date=event_date,
-                total_bill=data.get("total_bill", None)
+                total_bill=data.get("total_bill", None),
+                id_user_payments=data.get("id_user_payments")
             )
         db.session.add(new_event)
         added_events.append(new_event.to_dict())
@@ -67,6 +68,8 @@ def delete_event_id(event_id):
     events = Events.query.get(event_id)
     if not events:
         return jsonify({"error":"event not found"}),404
+    Event_User.query.filter_by(event_id=event_id).delete()
+    
     try:
         db.session.delete(events)
         db.session.commit()
@@ -147,8 +150,8 @@ def post_user_to_event(event_id):
             event_id=event_id,
             user_id=User.id,
             bonusthem=bonusthem,
-            bill_due=event_check.total_bill,
-            status="Paid",
+            bill_due=0,
+            status="UnPaid",
             id_user_payments= event_check.id_user_payments
         )
         db.session.add(new_event_user)
@@ -161,6 +164,7 @@ def post_user_to_event(event_id):
 
     try:
         db.session.commit()
+        response = update_bill_due(event_id)
         return jsonify({
             "added_users": added_users,
             "not_added_users": not_added_users
@@ -209,7 +213,7 @@ def get_users_in_event(event_idd):
         "users": users_list
     }), 200
 
-#8. lấy danh sách chi tiết user từ sự kiện nhất định.
+#9. Xóa người dùng tham gia 1 sự kiện.
 @event_bp.route("/events/<int:event_id>/users/<int:user_id>", methods=["DELETE"])
 def delete_detail_user_from_detail_event(event_id,user_id):
     event =Events.query.get(event_id)
@@ -226,16 +230,18 @@ def delete_detail_user_from_detail_event(event_id,user_id):
         return jsonify({"Message": "Người dùng không tham gia sự kiện"})
     
     db.session.delete(user)
+    
     try:
         db.session.commit()
+        response = update_bill_due(event_id)
         return jsonify({"Message": "Đã xóa thành công"})
     except Exception as ex:
         db.session.rollback()
         return jsonify({
         "error": str(ex)
         })
-        
-#9. Xóa người dùng tham gia 1 sự kiện.
+
+#8. lấy danh sách chi tiết user từ sự kiện nhất định.     
 @event_bp.route("/events/<int:event_id>/users/<int:user_id>", methods=["GET"])
 def get_detail_user_from_detail_event(event_id,user_id):
     event =Events.query.get(event_id)
@@ -254,8 +260,30 @@ def get_detail_user_from_detail_event(event_id,user_id):
         "event_id": event_id,
         "user": user_check.to_dict()
     })
+
+# 10. Chỉnh sửa số tiền bonus.
+@event_bp.route("/events/<int:event_id>/users/<int:user_id>", methods=["PUT"])
+def adjust_bonus(event_id, user_id):
+    event_user = Event_User.query.filter_by(event_id=event_id, user_id=user_id).first()
     
-# 10. Cập nhật lại tiền cho mỗi người trong sự kiện
+    if not event_user:
+        return jsonify({
+            "Error": f"Người có user_id: {user_id} không tham gia sự kiện hoặc sự kiện {event_id} không tồn tại"
+        }), 404  
+    
+    data = request.get_json()
+    if "bonusthem" in data:
+        event_user.bonusthem = data["bonusthem"]  
+    response = update_bill_due(event_id)
+
+    try:
+        db.session.commit()
+        return jsonify({"Message": "Đã sửa bonus thành công"}), 200
+    except Exception as ex:
+        db.session.rollback()  
+        return jsonify({"Error": str(ex)}), 500  
+
+# 11. Cập nhật lại tiền cho mỗi người trong sự kiện
 @event_bp.route("/events/<int:event_id>/users", methods=["PUT"])
 def update_bill_due(event_id):
     # Kiểm tra sự kiện có tồn tại không
@@ -336,5 +364,3 @@ def update_bill_due(event_id):
         print("Lỗi cập nhật bill_due:", str(ex))  # Log lỗi để debug
         return jsonify({"error": "Lỗi khi cập nhật bill_due", "details": str(ex)}), 500
         
-    
-    

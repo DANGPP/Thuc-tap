@@ -75,7 +75,12 @@ VALUES
 (2, 3, 800000, 1200000, 'Đã thanh toán'),
 (3, 1, 200000, 500000, 'Chưa thanh toán'),
 (3, 2, 400000, 900000, 'Đã thanh toán');
-
+ALTER TABLE events
+ADD COLUMN id_user_payments INTEGER,
+ADD CONSTRAINT fk_events_user_payments FOREIGN KEY (id_user_payments) REFERENCES users(id);
+ALTER TABLE event_user
+ADD COLUMN id_user_payments INTEGER,
+ADD CONSTRAINT fk_event_user_payments FOREIGN KEY (id_user_payments) REFERENCES users(id);
 SELECT * FROM users;
 SELECT * FROM events;
 SELECT * FROM event_user;
