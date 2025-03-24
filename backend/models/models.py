@@ -12,6 +12,7 @@ class Events(db.Model):
     update_at = db.Column(db.DateTime, default = datetime.utcnow, onupdate = datetime.utcnow)
     tong_thu = db.Column(db.Integer, nullable = True)
     tien_thua = db.Column(db.Integer, nullable = True)
+    status = db.Column(db.String(255), nullable = False)
     id_user_payments = db.Column(db.Integer,db.ForeignKey("users.id"),nullable = False )
     # thêm kết nối:
     User_who_paid = db.relationship("Users", backref=db.backref("Events", lazy=True))
@@ -25,29 +26,10 @@ class Events(db.Model):
             "update_at": self.update_at.strftime('%H:%M:%S %Y-%m-%d') if self.update_at else None,
             "id_user_payments": self.id_user_payments,
             "tong_thu": self.tong_thu if self.tong_thu else 0,
-            "tien_thua": self.tien_thua if self.tien_thua else 0
+            "tien_thua": self.tien_thua if self.tien_thua else 0,
+            "status": self.status
         }
-
-    __tablename__="events"
-    id = db.Column(db.Integer, primary_key= True)
-    name = db.Column(db.String(255),nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    total_bill = db.Column(db.Numeric(10, 2), nullable=True)
-    created_at = db.Column(db.DateTime, default = datetime.utcnow)
-    update_at = db.Column(db.DateTime, default = datetime.utcnow, onupdate = datetime.utcnow)
-    id_user_payments = db.Column(db.Integer,db.ForeignKey("users.id"),nullable = False )
-    # thêm kết nối:
-    User_who_paid = db.relationship("Users", backref=db.backref("Events", lazy=True))
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "name": self.name,
-            "date": self.date.strftime('%d-%m-%Y') if self.date else None,
-            "total_bill": self.total_bill,
-            "created_at": self.created_at.strftime('%H:%M:%S %Y-%m-%d') if self.created_at else None,
-            "update_at": self.update_at.strftime('%H:%M:%S %Y-%m-%d') if self.update_at else None,
-            "id_user_payments": self.id_user_payments
-        }     
+     
 
 class Users(db.Model):
     __tablename__ = "users"

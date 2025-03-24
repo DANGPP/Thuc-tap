@@ -40,8 +40,9 @@ def post_events():
                 name=data["name"],
                 date=event_date,
                 total_bill=data.get("total_bill", None),
-                id_user_payments=data.get("id_user_payments")
-            )
+                id_user_payments=data.get("id_user_payments"),
+                status ="Open"
+        )
         db.session.add(new_event)
         added_events.append(new_event.to_dict())
     try:
@@ -63,21 +64,27 @@ def get_event_id(event_id):
     return jsonify(events.to_dict())
 
 #4. Xóa sự kiện
-@event_bp.route('/events/<int:event_id>', methods=["DELETE"])
-def delete_event_id(event_id):
-    events = Events.query.get(event_id)
-    if not events:
-        return jsonify({"error":"event not found"}),404
-    Event_User.query.filter_by(event_id=event_id).delete()
-    
+@event_bp.route('/events', methods=["DELETE"])
+def delete_event_id():
+    data = request.get_json()
+    # Kiểm tra nếu request body không hợp lệ
+    if not data or "list_del_ev" not in data:
+        return jsonify({"error": "Invalid request, missing 'list_del_ev'"}), 400
+
+    list_del_ev = data.get('list_del_ev', [])
+    if not list_del_ev:
+        return jsonify({"error": "No event IDs provided"}), 400
+    for id in list_del_ev:
+        try:
+            Event_User.query.filter_by(event_id=id).delete()
+            Events.query.filter_by(id=id).delete()
+        except Exception as ex:
+            continue
     try:
-        db.session.delete(events)
         db.session.commit()
-        return jsonify("delete successfully")
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}),500
-    
+        return jsonify({"Message":"delete thanh cong"})
+    except Exception as ex:
+        return jsonify({"Error":str(ex)})   
 #5. Chỉnh sửa sự kiện
 @event_bp.route('/events/<int:event_id>', methods = ["PUT"])
 def adjust_event_id(event_id):
@@ -101,6 +108,8 @@ def adjust_event_id(event_id):
     # Sửa sự kiện nếu có thì sửa không thì giữ nguyên.
     events.name = data.get('name',events.name)
     events.total_bill = data.get('total_bill',events.total_bill)
+    events.id_user_payments = data.get('id_user_payments',events.id_user_payments)
+    events.status = data.get('status',events.status )
     
     try:
         db.session.commit()
@@ -200,7 +209,8 @@ def get_users_in_event(event_idd):
             users_list.append({
                 "user_id": user.id,
                 "name": user.name,
-                "bill_due": event_user.bill_due
+                "bill_due": event_user.bill_due,
+                "status": event_user.status
             })
 
     return jsonify({
@@ -214,26 +224,22 @@ def get_users_in_event(event_idd):
     }), 200
 
 #9. Xóa người dùng tham gia 1 sự kiện.
-@event_bp.route("/events/<int:event_id>/users/<int:user_id>", methods=["DELETE"])
-def delete_detail_user_from_detail_event(event_id,user_id):
+@event_bp.route("/events/<int:event_id>/users", methods=["DELETE"])
+def delete_detail_user_from_detail_event(event_id):
     event =Events.query.get(event_id)
     if not event:
         return jsonify({"error":"Không tìm thấy event"}),404
-    user_check = Users.query.get(user_id)
-    if not user_check:
-        return jsonify({"Message":"Không tìm thấy user"})
-    Ev_user = Event_User.query.filter_by(event_id=event_id).all()
-    if not Ev_user :
-        return jsonify({"Message":"Chưa ai tham gia sự kiện"})
-    user = Event_User.query.filter_by(event_id=event_id,user_id=user_id).first()
-    if not user:
-        return jsonify({"Message": "Người dùng không tham gia sự kiện"})
-    
-    db.session.delete(user)
+    data = request.get_json()
+    list_del_us = data.get("list_del_us", [])
+    for id in list_del_us:
+        try:
+            Event_User.query.filter_by(event_id = event_id, user_id=id).delete()
+        except Exception as ex:
+            continue
     
     try:
         db.session.commit()
-        response = update_bill_due(event_id)
+        update_bill_due(event_id)
         return jsonify({"Message": "Đã xóa thành công"})
     except Exception as ex:
         db.session.rollback()
@@ -258,7 +264,8 @@ def get_detail_user_from_detail_event(event_id,user_id):
         return jsonify({"Message": "Người dùng không tham gia sự kiện"})
     return jsonify({
         "event_id": event_id,
-        "user": user_check.to_dict()
+        "user": user_check.to_dict(),
+        "status": user.status
     })
 
 # 10. Chỉnh sửa số tiền bonus.
@@ -274,8 +281,9 @@ def adjust_bonus(event_id, user_id):
     data = request.get_json()
     if "bonusthem" in data:
         event_user.bonusthem = data["bonusthem"]  
-    response = update_bill_due(event_id)
-
+        update_bill_due(event_id)
+    if "status" in data:
+        event_user.status = data["status"]
     try:
         db.session.commit()
         return jsonify({"Message": "Đã sửa bonus thành công"}), 200
@@ -308,8 +316,10 @@ def update_bill_due(event_id):
     bonus_them = {}  # {user_id: bonus_amount}
     bonus_percent = {}  # {user_id: bonus_calculated}
     total_bonus_percent_users = 0
-
+    check_paid = True
     for user in event_users:
+        if user.status.toUppercase() =="unpaid":
+            check_paid = False
         bonus_str= "0"
         if user.bonusthem:
             bonus_str = user.bonusthem.strip() 
@@ -356,6 +366,9 @@ def update_bill_due(event_id):
         tien_thua = tong_thu-total_bill_origin
     event.tong_thu= tong_thu
     event.tien_thua = tien_thua
+    if check_paid:
+        check_paid = True
+        
     try:
         db.session.commit()
         return jsonify({"message": "Đã cập nhật bill_due thành công"}), 200
