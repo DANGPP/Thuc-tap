@@ -10,7 +10,7 @@ event_bp = Blueprint("event_bp", __name__)
 #1.Xem thông tin toàn bộ sự kiện
 @event_bp.route('/events', methods=['GET'])
 def get_events():
-    events = Events.query.all()  # Lấy tất cả dữ liệu từ bảng
+    events = Events.query.order_by(Events.id).all()  # Lấy tất cả dữ liệu từ bảng
     return jsonify([event.to_dict() for event in events])  # Trả về danh sách JSON
 
 #2.Thêm sự kiện
@@ -44,6 +44,17 @@ def post_events():
                 status ="Open"
         )
         db.session.add(new_event)
+        user = Users.query.get(data.get("id_user_payments"))
+        # Thêm user vào event
+        new_event_user = Event_User(
+            event_id=new_event.id,
+            user_id=user.id,
+            bonusthem="0",
+            bill_due=new_event.total_bill,
+            status="Người đã thanh toán",
+            id_user_payments= user.id
+        )
+        db.session.add(new_event_user)
         added_events.append(new_event.to_dict())
     try:
         db.session.commit()
@@ -85,6 +96,8 @@ def delete_event_id():
         return jsonify({"Message":"delete thanh cong"})
     except Exception as ex:
         return jsonify({"Error":str(ex)})   
+  
+    
 #5. Chỉnh sửa sự kiện
 @event_bp.route('/events/<int:event_id>', methods = ["PUT"])
 def adjust_event_id(event_id):
@@ -126,16 +139,11 @@ def post_user_to_event(event_id):
             "error":"không tìm thấy event" 
         }),404
     data_user_list = request.get_json()
-
-    # Kiểm tra xem data có phải là danh sách không
-    if not isinstance(data_user_list, list):
-        return jsonify({"error": "Không phải là List user"}), 400
-
     added_users = []
     not_added_users = []
-    for user in data_user_list:
-        user_id = user.get("user_id")        
-        bonusthem = user.get("bonusthem", "0")  
+    for user_id in data_user_list["list_user"]:
+               
+        bonusthem = "0"
         # Kiểm tra user có tồn tại không
         User = Users.query.get(user_id)
         if not User:
@@ -180,7 +188,7 @@ def post_user_to_event(event_id):
         }), 201
     except Exception as ex:
         db.session.rollback()
-        return jsonify({"error": str(ex)}), 500
+        return jsonify({"error": str(ex)+"haha"}), 500
 
 #7. Lấy danh sách users từ sự kiện
 @event_bp.route("/events/<int:event_idd>/users", methods=["GET"])
@@ -210,8 +218,9 @@ def get_users_in_event(event_idd):
                 "user_id": user.id,
                 "name": user.name,
                 "bill_due": event_user.bill_due,
-                "status": event_user.status
+                "status": "Người đã thanh toán" if user.id == event.id_user_payments else "UnPaid"
             })
+    users_list = sorted(users_list, key=lambda x: (x["status"] != "Người đã thanh toán", x["user_id"]))
 
     return jsonify({
         "event_id": event.id,
@@ -318,7 +327,7 @@ def update_bill_due(event_id):
     total_bonus_percent_users = 0
     check_paid = True
     for user in event_users:
-        if user.status.toUppercase() =="unpaid":
+        if user.status.upper() =="unpaid":
             check_paid = False
         bonus_str= "0"
         if user.bonusthem:
@@ -376,4 +385,3 @@ def update_bill_due(event_id):
         db.session.rollback()
         print("Lỗi cập nhật bill_due:", str(ex))  # Log lỗi để debug
         return jsonify({"error": "Lỗi khi cập nhật bill_due", "details": str(ex)}), 500
-        
