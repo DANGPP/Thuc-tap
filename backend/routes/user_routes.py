@@ -90,4 +90,5 @@ def adjust_user(user_id):
         return jsonify({"message": "Cập nhật thành công", "user": user.to_dict()}), 200
     except Exception as ex:
         db.session.rollback()
-        return jsonify({"error": str(ex)}), 500
+        return jsonify({"error": str(ex)}), 500  
+    

@@ -1,10 +1,11 @@
 from flask import Flask
-
+from flask_cors import CORS
 from configs.config import Config
 from extensions import db
 from routes import register_routes
 
 app = Flask(__name__)
+CORS(app)
 app.config.from_object(Config)
 
 # Khởi tạo database, liên kết với flask app

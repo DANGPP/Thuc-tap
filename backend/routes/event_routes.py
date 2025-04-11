@@ -1,11 +1,13 @@
-from flask import Blueprint, jsonify, request, make_response
-from extensions import db
-from models.models import Events,Event_User,Users
+from flask import Blueprint,jsonify,request, current_app
+from models.models import  Events, Users, Event_User
 from datetime import datetime
-
 from decimal import Decimal
+from extensions import db
+from tasks.send_mail_task import send_email_background
+from celery.result import AsyncResult
 
-event_bp = Blueprint("event_bp", __name__)
+import json
+event_bp = Blueprint("event",__name__)
 
 #1.Xem thông tin toàn bộ sự kiện
 @event_bp.route('/events', methods=['GET'])
@@ -385,3 +387,50 @@ def update_bill_due(event_id):
         db.session.rollback()
         print("Lỗi cập nhật bill_due:", str(ex))  # Log lỗi để debug
         return jsonify({"error": "Lỗi khi cập nhật bill_due", "details": str(ex)}), 500
+#12 gửi mail
+@event_bp.route('/events/send-email/<int:event_id>/<int:user_id>', methods=["POST"])
+def send_email(event_id,user_id):
+    emailUser = Users.query.get(user_id).email_teams
+    if not emailUser:
+        return jsonify({"error":"emailUser không tồn tại"})
+    user = Event_User.query.filter_by(event_id= event_id, user_id = user_id).first()
+    if not user:
+        return jsonify({"error":"user cần gửi thông báo không tồn tại"})
+    event = Events.query.get(event_id)
+    usercantratien = Users.query.get(event.id_user_payments)
+    if not usercantratien:
+        return jsonify({"error":"user cần gửi tiền không tồn tại"})
+
+    if not event:
+        return jsonify({"error":"event cho việc tìm người để gửi thông báo không tồn tại"})
+    try:
+        # mail.send(msg) thay bang code ben duoi
+        task= send_email_background.delay(
+            subject='Nộp tiền sự kiện',
+            recipient=emailUser,
+            body=f"""
+                Sự kiện: {event.name}
+                ID: {event.id}
+                Diễn ra vào ngày: {event.date}
+                Bạn đã chọn bonus: {user.bonusthem}
+                Phải nộp: {user.bill_due} VNĐ
+                Vui lòng chuyển khoản đến: {usercantratien.name}       
+                        Ngân hàng: {usercantratien.ten_nh}
+                        Số tài khoản: {usercantratien.stk}
+                """
+)
+        return jsonify({'message': 'Email sẽ được gửi trong nền (background)',
+                        "task_id": task.id
+                        }), 202
+        # return jsonify({'message': 'Đã gửi mail thành công'}), 200
+    except Exception as e:
+        return jsonify({'error': "Lỗi ở 12 gửi email"+str(e)}), 500
+
+# 13: lấy id của task celery
+@event_bp.route("/task-status/<task_id>")
+def get_task_status(task_id):
+    task_result = AsyncResult(task_id)
+    return jsonify({
+        "state": task_result.state,
+        "result": str(task_result.result)
+    })
