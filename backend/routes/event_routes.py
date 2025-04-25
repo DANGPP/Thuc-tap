@@ -2,9 +2,9 @@ from flask import Blueprint,jsonify,request, current_app
 from models.models import  Events, Users, Event_User
 from datetime import datetime
 from decimal import Decimal
+from celery.result import AsyncResult
 from extensions import db
 from tasks.send_mail_task import send_email_background
-from celery.result import AsyncResult
 
 import json
 event_bp = Blueprint("event",__name__)
@@ -60,6 +60,7 @@ def post_events():
         added_events.append(new_event.to_dict())
     try:
         db.session.commit()
+        # adjust_status_user_in_event(new_event.id, user_id)
         return jsonify({"message": "cap nhat thanh cong",
                         "list_added-event": added_events,
                         "list_skipped-event": skipped_events
@@ -131,7 +132,32 @@ def adjust_event_id(event_id):
         return jsonify({"da cap nhat thanh cong ":events.to_dict()})
     except Exception as ex:
         return jsonify(str(ex))
-    
+#13 chỉnh sửa status của người tham gia sự kiện
+@event_bp.route('/events/<int:event_id>/users/<int:user_id>', methods=["PUT"])
+def adjust_status_user_in_event(event_id, user_id):
+    event_user = Event_User.query.filter_by(event_id=event_id, user_id=user_id).first()
+    if not event_user:
+        return jsonify({"error": "Người dùng không tham gia sự kiện"}), 404
+    data = request.get_json()
+    if "status" in data:
+        event_user.status = data.get("status", event_user.status)
+    try:
+        db.session.commit()
+        return jsonify({"message": "Đã sửa status thành công"}), 200
+    except Exception as ex:
+        db.session.rollback()
+        return jsonify({"error": str(ex)}), 500
+#14 lấy status của người dùng trong sự kiện
+@event_bp.route('/events/<int:event_id>/users/<int:user_id>', methods=["GET"])
+def get_status_user_in_event(event_id, user_id):
+    event_user = Event_User.query.filter_by(event_id=event_id, user_id=user_id).first()
+    if not event_user:
+        return jsonify({"error": "Người dùng không tham gia sự kiện"}), 404
+    return jsonify({
+        "event_id": event_id,
+        "user_id": user_id,
+        "status": event_user.status
+    }), 200
 #6. Thêm người vào 1 sự kiện
 @event_bp.route("/events/<int:event_id>/users", methods=["POST"])
 def post_user_to_event(event_id):
@@ -183,7 +209,8 @@ def post_user_to_event(event_id):
 
     try:
         db.session.commit()
-        response = update_bill_due(event_id)
+        update_bill_due(event_id)
+
         return jsonify({
             "added_users": added_users,
             "not_added_users": not_added_users
@@ -220,7 +247,7 @@ def get_users_in_event(event_idd):
                 "user_id": user.id,
                 "name": user.name,
                 "bill_due": event_user.bill_due,
-                "status": "Người đã thanh toán" if user.id == event.id_user_payments else "UnPaid"
+                "status": event_user.status
             })
     users_list = sorted(users_list, key=lambda x: (x["status"] != "Người đã thanh toán", x["user_id"]))
 
