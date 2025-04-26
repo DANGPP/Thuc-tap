@@ -1,0 +1,12 @@
+# Environment file
+.env
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Flask logs
+*.log
+
+# DB files (if you use SQLite or others)
+*.sqlite3

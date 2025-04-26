@@ -1,0 +1,7 @@
+# Ignore root .env for Docker secrets
+.env
+
+# Python cache (in case scripts at root)
+__pycache__/
+*.pyc
+
