@@ -1,17 +1,111 @@
+# services:
+#   flask_db_real:
+#     container_name: flask_db_real
+#     image: postgres:16
+#     ports:
+#       - "5433:5432"
+#     environment:
+#       - POSTGRES_USER=postgres
+#       - POSTGRES_PASSWORD=1
+#       - POSTGRES_DB=postgres
+#     volumes:
+#       - pgdata:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U postgres"]
+#       interval: 5s
+#       retries: 5
+#       start_period: 10s
+#     restart: unless-stopped
+
+#   redis:
+#     container_name: redis
+#     image: redis:7-alpine
+#     ports:
+#       - "6380:6379"
+#     volumes:
+#       - redis_data:/data
+#     healthcheck:
+#       test: ["CMD", "redis-cli", "ping"]
+#       interval: 5s
+#       retries: 5
+#       start_period: 10s
+#     restart: unless-stopped
+
+#   backend:
+#     container_name: backend
+#     build: ./backend
+#     ports:
+#       - "5014:5000"
+#     environment:
+#       - DB_HOST=flask_db_real
+#       - DB_PORT=5432
+#       - DB_USER=postgres
+#       - DB_PASSWORD=1
+#       - DB_NAME=postgres
+#       - CELERY_BROKER_URL=redis://redis:6379/0
+#       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+#       - SENDER_EMAIL=maitiandewd@gmail.com
+#       - SENDER_PASSWORD=brzo hedf veiy jksi
+#     depends_on:
+#       flask_db_real:
+#         condition: service_healthy
+#       redis:
+#         condition: service_healthy
+#     restart: unless-stopped
+
+#   celery_worker:
+#     container_name: celery_worker
+#     build: ./backend
+#     command: celery -A celery_worker.celery worker --loglevel=info
+#     environment:
+#       - DB_HOST=flask_db_real
+#       - DB_PORT=5432
+#       - DB_USER=postgres
+#       - DB_PASSWORD=1
+#       - DB_NAME=postgres
+#       - CELERY_BROKER_URL=redis://redis:6379/0
+#       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+#       - SENDER_EMAIL=maitiandewd@gmail.com
+#       - SENDER_PASSWORD=brzo hedf veiy jksi
+#     depends_on:
+#       flask_db_real:
+#         condition: service_healthy
+#       redis:
+#         condition: service_healthy
+#     restart: unless-stopped
+
+#   frontend:
+#     container_name: frontend
+#     build:
+#       context: ./frontend
+#       dockerfile: Dockerfile
+#       args:
+#         - REACT_APP_API_URL=http://backend:5000 
+#     ports:
+#       - "3491:80"
+#     depends_on:
+#       backend:
+#         condition: service_started
+#     restart: unless-stopped
+
+
+# volumes:
+#   pgdata: {}
+#   redis_data: {}
+version: '3.8'
+
 services:
   flask_db_real:
     container_name: flask_db_real
     image: postgres:16
     ports:
       - "5433:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=1
-      - POSTGRES_DB=postgres
+    env_file:
+      - .env
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       retries: 5
       start_period: 10s
@@ -36,16 +130,8 @@ services:
     build: ./backend
     ports:
       - "5014:5000"
-    environment:
-      - DB_HOST=flask_db_real
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=1
-      - DB_NAME=postgres
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-      - SENDER_EMAIL=maitiandewd@gmail.com
-      - SENDER_PASSWORD=brzo hedf veiy jksi
+    env_file:
+      - .env
     depends_on:
       flask_db_real:
         condition: service_healthy
@@ -57,16 +143,8 @@ services:
     container_name: celery_worker
     build: ./backend
     command: celery -A celery_worker.celery worker --loglevel=info
-    environment:
-      - DB_HOST=flask_db_real
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=1
-      - DB_NAME=postgres
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-      - SENDER_EMAIL=maitiandewd@gmail.com
-      - SENDER_PASSWORD=brzo hedf veiy jksi
+    env_file:
+      - .env
     depends_on:
       flask_db_real:
         condition: service_healthy
@@ -87,7 +165,6 @@ services:
       backend:
         condition: service_started
     restart: unless-stopped
-
 
 volumes:
   pgdata: {}
