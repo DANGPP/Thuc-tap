@@ -35,7 +35,7 @@ services:
     container_name: backend
     build: ./backend
     ports:
-      - "5001:5000"
+      - "5014:5000"
     environment:
       - DB_HOST=flask_db_real
       - DB_PORT=5432
@@ -82,7 +82,7 @@ services:
       args:
         - REACT_APP_API_URL=http://backend:5000 
     ports:
-      - "3001:80"
+      - "3491:80"
     depends_on:
       backend:
         condition: service_started

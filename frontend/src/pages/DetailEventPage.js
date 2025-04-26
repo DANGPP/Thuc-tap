@@ -60,6 +60,9 @@ function DetailEventPage() {
         <strong>Tổng thu:</strong> {eventData.tong_thu} VND
       </Typography>
       <Typography variant="body1">
+        <strong>Tiền Thừa:</strong> {eventData.tien_thua} VND
+      </Typography>
+      <Typography variant="body1">
         <strong>Số người tham gia:</strong> {eventData.total_users}
       </Typography>
       <Typography variant="body1">

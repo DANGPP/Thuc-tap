@@ -133,20 +133,53 @@ def adjust_event_id(event_id):
     except Exception as ex:
         return jsonify(str(ex))
 #13 chỉnh sửa status của người tham gia sự kiện
-@event_bp.route('/events/<int:event_id>/users/<int:user_id>', methods=["PUT"])
-def adjust_status_user_in_event(event_id, user_id):
+# @event_bp.route('/events/<int:event_id>/users/<int:user_id>', methods=["PUT"])
+# def adjust_status_user_in_event(event_id, user_id):
+#     event_user = Event_User.query.filter_by(event_id=event_id, user_id=user_id).first()
+#     if not event_user:
+#         return jsonify({"error": "Người dùng không tham gia sự kiện"}), 404
+#     data = request.get_json()
+#     if "status" in data:
+#         event_user.status = data.get("status", event_user.status)
+#     try:
+#         db.session.commit()
+#         return jsonify({"message": "Đã sửa status thành công"}), 200
+#     except Exception as ex:
+#         db.session.rollback()
+#         return jsonify({"error": str(ex)}), 500
+@event_bp.route("/events/<int:event_id>/users/<int:user_id>", methods=["PUT"])
+
+def update_event_user(event_id, user_id):
     event_user = Event_User.query.filter_by(event_id=event_id, user_id=user_id).first()
+    
     if not event_user:
-        return jsonify({"error": "Người dùng không tham gia sự kiện"}), 404
+        return jsonify({
+            "error": f"Người dùng với user_id: {user_id} không tham gia sự kiện {event_id} hoặc sự kiện không tồn tại"
+        }), 404  
+    
     data = request.get_json()
+
+    message_parts = []
+
+    if "bonusthem" in data:
+        event_user.bonusthem = data["bonusthem"]
+        update_bill_due(event_id)
+        message_parts.append("bonus")
+
     if "status" in data:
-        event_user.status = data.get("status", event_user.status)
+        event_user.status = data["status"]
+        message_parts.append("status")
+
+    if not message_parts:
+        return jsonify({"error": "Không có dữ liệu để cập nhật (bonusthem/status)"}), 400
+
     try:
         db.session.commit()
-        return jsonify({"message": "Đã sửa status thành công"}), 200
+        return jsonify({"message": f"Đã sửa {' và '.join(message_parts)} thành công"}), 200
     except Exception as ex:
         db.session.rollback()
         return jsonify({"error": str(ex)}), 500
+
 #14 lấy status của người dùng trong sự kiện
 @event_bp.route('/events/<int:event_id>/users/<int:user_id>', methods=["GET"])
 def get_status_user_in_event(event_id, user_id):
@@ -307,27 +340,27 @@ def get_detail_user_from_detail_event(event_id,user_id):
     })
 
 # 10. Chỉnh sửa số tiền bonus.
-@event_bp.route("/events/<int:event_id>/users/<int:user_id>", methods=["PUT"])
-def adjust_bonus(event_id, user_id):
-    event_user = Event_User.query.filter_by(event_id=event_id, user_id=user_id).first()
+# @event_bp.route("/events/<int:event_id>/users/<int:user_id>", methods=["PUT"])
+# def adjust_bonus(event_id, user_id):
+#     event_user = Event_User.query.filter_by(event_id=event_id, user_id=user_id).first()
     
-    if not event_user:
-        return jsonify({
-            "Error": f"Người có user_id: {user_id} không tham gia sự kiện hoặc sự kiện {event_id} không tồn tại"
-        }), 404  
+#     if not event_user:
+#         return jsonify({
+#             "Error": f"Người có user_id: {user_id} không tham gia sự kiện hoặc sự kiện {event_id} không tồn tại"
+#         }), 404  
     
-    data = request.get_json()
-    if "bonusthem" in data:
-        event_user.bonusthem = data["bonusthem"]  
-        update_bill_due(event_id)
-    if "status" in data:
-        event_user.status = data["status"]
-    try:
-        db.session.commit()
-        return jsonify({"Message": "Đã sửa bonus thành công"}), 200
-    except Exception as ex:
-        db.session.rollback()  
-        return jsonify({"Error": str(ex)}), 500  
+#     data = request.get_json()
+#     if "bonusthem" in data:
+#         event_user.bonusthem = data["bonusthem"]  
+#         update_bill_due(event_id)
+#     if "status" in data:
+#         event_user.status = data["status"]
+#     try:
+#         db.session.commit()
+#         return jsonify({"Message": "Đã sửa bonus thành công"}), 200
+#     except Exception as ex:
+#         db.session.rollback()  
+#         return jsonify({"Error": str(ex)}), 500  
 
 # 11. Cập nhật lại tiền cho mỗi người trong sự kiện
 @event_bp.route("/events/<int:event_id>/users", methods=["PUT"])
