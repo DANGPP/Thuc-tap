@@ -1,0 +1,20 @@
+backend:
+  image: dangthbm/backend-flask:1.0
+  port: 5000
+celery:
+  image: dangthbm/celery-worker:1.0
+db:
+  image: postgres:14
+  port: 5432
+frontend:
+  image: dangthbm/frontend-react:1.0
+  port: 3000
+ingress:
+  backend_host: 192.168.49.2.nip.io
+  enabled: true
+  frontend_host: 192.168.49.2.nip.io
+redis:
+  image: redis:7
+  port: 6379
+secrets:
+  db_password: supersecret

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: dangdangtest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: dangthbm2k4/chiatien-backend:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_HOST
+          value: "flask-db-service"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: chiatiem-secrets
+              key: postgres-password
+        - name: DB_NAME
+          value: "postgres"
+        - name: CELERY_BROKER_URL
+          value: "redis://redis-service:6379/0"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://redis-service:6379/1"
+        - name: SENDER_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: chiatiem-secrets
+              key: sender-email
+        - name: SENDER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: chiatiem-secrets
+              key: sender-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: dangdangtest
+spec:
+  selector:
+    app: backend
+  ports:
+  - protocol: TCP
+    port: 5001
+    targetPort: 5000
+  type: ClusterIP

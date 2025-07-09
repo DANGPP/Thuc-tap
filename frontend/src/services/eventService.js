@@ -1,18 +1,25 @@
-// services/eventService.js
 import { fetchDetailUser } from "./detailEventService";
-const API_BASE_URL = process.env.REACT_APP_API_BACKEND +"events";
+const API_BASE_URL = process.env.REACT_APP_API_BACKEND + "events";
 
-// Lấy sự kiện
+// Lấy danh sách sự kiện (có token)
 export const fetchEvents = async () => {
+  const token = localStorage.getItem("token");
+
   try {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetch(API_BASE_URL, {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
     if (!response.ok) throw new Error("Lỗi khi lấy dữ liệu!");
 
     const data = await response.json();
     const openEvents = data.filter(event => event.status === "Open");
 
-    // Lấy tên user cho từng sự kiện
-    const userPromises = openEvents.map(event => fetchDetailUser(event.id_user_payments));
+    const userPromises = openEvents.map(event =>
+      fetchDetailUser(event.id_user_payments)
+    );
     const userNames = await Promise.all(userPromises);
 
     return openEvents.map((event, index) => ({
@@ -28,11 +35,19 @@ export const fetchEvents = async () => {
     return [];
   }
 };
-// lấy chi tiết sự kiện
+
+// Lấy chi tiết sự kiện theo ID
 export const fetchEventDetail = async (eventid) => {
+  const token = localStorage.getItem("token");
+
   try {
-    const response = await fetch(`${API_BASE_URL}/${eventid}`);
-    if (!response.ok) throw new Error("Lỗi khi lấy dữ liệu chi tiết sự kiện eventService.js!");
+    const response = await fetch(`${API_BASE_URL}/${eventid}`, {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) throw new Error("Lỗi khi lấy dữ liệu chi tiết sự kiện!");
 
     const data = await response.json();
     return data;
@@ -41,37 +56,42 @@ export const fetchEventDetail = async (eventid) => {
     return null;
   }
 };
-  
-// Hàm gửi yêu cầu POST để thêm sự kiện mới
+
+// Thêm sự kiện mới (POST)
 export const addEvent = async (events) => {
+  const token = localStorage.getItem("token");
+
   try {
-    console.log("🚀 Gửi yêu cầu POST với dữ liệu:", events); // Log dữ liệu gửi lên API
+    console.log("🚀 Gửi yêu cầu POST với dữ liệu:", events);
 
     const response = await fetch(API_BASE_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
       },
-      body: JSON.stringify(events), // Gửi danh sách sự kiện
+      body: JSON.stringify(events)
     });
 
-    console.log("📩 Phản hồi từ server:", response); // Kiểm tra phản hồi từ server
+    console.log("📩 Phản hồi từ server:", response);
 
     if (!response.ok) {
       throw new Error(`Lỗi khi thêm sự kiện: ${response.statusText}`);
     }
 
-    const responseData = await response.json(); // Đọc dữ liệu JSON từ phản hồi
-    console.log("✅ Dữ liệu JSON từ API:", responseData); // Kiểm tra nội dung JSON trả về
-
+    const responseData = await response.json();
+    console.log("✅ Dữ liệu JSON từ API:", responseData);
     return responseData;
   } catch (error) {
     console.error("❌ Lỗi khi gọi API thêm sự kiện:", error);
     return null;
   }
 };
-// hàm Put events
+
+// Cập nhật sự kiện (PUT)
 export const updateEvent = async (eventId, updatedEventData) => {
+  const token = localStorage.getItem("token");
+
   try {
     console.log(`🔄 Gửi yêu cầu PUT đến: ${API_BASE_URL}/${eventId}`);
     console.log("📤 Dữ liệu gửi đi:", updatedEventData);
@@ -80,8 +100,9 @@ export const updateEvent = async (eventId, updatedEventData) => {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
       },
-      body: JSON.stringify(updatedEventData),
+      body: JSON.stringify(updatedEventData)
     });
 
     if (!response.ok) {

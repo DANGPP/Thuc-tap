@@ -17,7 +17,7 @@ def get_user_id(user_id):
     return jsonify(user.to_dict())
 
 #3. Thêm users
-@user_bp.route("/users", methods=["POST"])
+@user_bp.route("/register", methods=["POST"])
 def post_user():
     data_list = request.get_json()
 
@@ -27,9 +27,24 @@ def post_user():
     users_created = []  # Lưu danh sách user được tạo
     users_not_created = []
     for data in data_list:
-        if 'name' not in data or 'email_teams' not in data or "sdt" not in data or 'ten_nh' not in data or 'stk' not in data:
-            users_not_created.append(data)
-            continue  # Bỏ qua nếu thiếu thông tin
+        # Kiểm tra trường bắt buộc
+        required_fields = ['name', 'email_teams', 'sdt', 'ten_nh', 'stk', 'mk']
+        if not all(field in data for field in required_fields):
+            users_not_created.append({
+                "reason": "Thiếu trường thông tin bắt buộc",
+                "data": data
+            })
+            continue
+        
+        # Kiểm tra email trùng
+        existing_user = Users.query.filter_by(email_teams=data['email_teams']).first()
+        if existing_user:
+            users_not_created.append({
+                "reason": "Email đã tồn tại",
+                "data": data
+            })
+            continue
+
 
         try:
             new_user = Users(
@@ -37,8 +52,10 @@ def post_user():
                 email_teams=data['email_teams'],
                 sdt=data['sdt'],
                 ten_nh=data['ten_nh'],
-                stk=data['stk']
+                stk=data['stk'],
+                mk=data['mk']  
             )
+            new_user.set_mk()  # Mã hóa mật khẩu
             db.session.add(new_user)
             users_created.append(new_user)
         except Exception as ex:

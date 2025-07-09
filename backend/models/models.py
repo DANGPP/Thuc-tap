@@ -1,6 +1,6 @@
 from datetime import datetime
 from extensions import db
-
+import bcrypt
         
 class Events(db.Model):
     __tablename__="events"
@@ -35,7 +35,8 @@ class Users(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer,primary_key = True)
     name = db.Column(db.String(255), nullable = False)
-    email_teams = db.Column(db.String(255),nullable = False)
+    email_teams = db.Column(db.String(255),nullable = False, unique = True)
+    mk = db.Column(db.String(255),nullable = False)
     sdt = db.Column(db.String(255), nullable = False)
     ten_nh = db.Column(db.String(255),nullable = False)
     stk = db.Column(db.String(50),nullable = False)
@@ -52,7 +53,18 @@ class Users(db.Model):
             "created_at": self.created_at.strftime('%H:%M:%S %Y-%m-%d'),
             "update_at": self.update_at.strftime('%H:%M:%S %Y-%m-%d')
         }
+    def set_mk(self):
+        """Mã hóa và lưu mật khẩu"""
+        password_bytes = self.mk.encode('utf-8')
+        salt = bcrypt.gensalt()
+        self.mk = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
 
+    def check_mk(self,mk):
+        """Kiểm tra mật khẩu"""
+        password_bytes = mk.encode('utf-8')
+        hash_bytes = self.mk.encode('utf-8')
+        return bcrypt.checkpw(password_bytes, hash_bytes)
+    
 class Event_User(db.Model):
     __tablename__ = "event_user"
     id = db.Column(db.Integer,primary_key= True)

@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect } from "react";
-import { Button, Container, Typography } from "@mui/material";
+import { Button, Container, Typography, Box } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import { fetchEvents, addEvent, updateEvent } from "../services/eventService";
 import EventTable from "../components/Event-components/EventTable";
 import AddEventPopup from "../components/Event-components/AddEventPopup";
@@ -12,9 +12,16 @@ function EventPage() {
   const [events, setEvents] = useState([]);
   const [newEvent, setNewEvent] = useState({ name: "", date: "", total_bill: "", id_user_payments: "" });
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     fetchEvents().then(setEvents);
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
 
   const handleInputChange = (e) => {
     setNewEvent({ ...newEvent, [e.target.name]: e.target.value });
@@ -95,15 +102,41 @@ function EventPage() {
 
   return (
     <Container>
-      <Typography variant="h4" gutterBottom>
-        Welcome to the Event Page!
-      </Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h4">Welcome to the Event Page!</Typography>
+        <Button variant="outlined" color="secondary" onClick={handleLogout}>
+          Đăng xuất
+        </Button>
+      </Box>
+
       <Button variant="contained" color="primary" onClick={() => setShowAddPopup(true)}>
-        Add Event
+        Thêm sự kiện
       </Button>
-      <EventTable events={events} setShowEditPopup={setShowEditPopup} deleteEvent={deleteEvent} togglePaid={togglePaid} />
-      <AddEventPopup showAddPopup={showAddPopup} setShowAddPopup={setShowAddPopup} newEvent={newEvent} handleInputChange={handleInputChange} addEvent={handleAddEvent} setNewEvent={setNewEvent} />
-      <EditEventPopup showEditPopup={showEditPopup} setShowEditPopup={setShowEditPopup} newEvent={newEvent} handleInputChange={handleInputChange} updateEvent={handleUpdateEvent} setNewEvent={setNewEvent} />
+
+      <EventTable
+        events={events}
+        setShowEditPopup={setShowEditPopup}
+        deleteEvent={deleteEvent}
+        togglePaid={togglePaid}
+      />
+
+      <AddEventPopup
+        showAddPopup={showAddPopup}
+        setShowAddPopup={setShowAddPopup}
+        newEvent={newEvent}
+        handleInputChange={handleInputChange}
+        addEvent={handleAddEvent}
+        setNewEvent={setNewEvent}
+      />
+
+      <EditEventPopup
+        showEditPopup={showEditPopup}
+        setShowEditPopup={setShowEditPopup}
+        newEvent={newEvent}
+        handleInputChange={handleInputChange}
+        updateEvent={handleUpdateEvent}
+        setNewEvent={setNewEvent}
+      />
     </Container>
   );
 }

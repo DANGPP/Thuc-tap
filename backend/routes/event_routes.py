@@ -5,12 +5,14 @@ from decimal import Decimal
 from celery.result import AsyncResult
 from extensions import db
 from tasks.send_mail_task import send_email_background
+from utils.auth_decorator import login_required
 
 import json
 event_bp = Blueprint("event",__name__)
 
 #1.Xem thông tin toàn bộ sự kiện
 @event_bp.route('/events', methods=['GET'])
+@login_required
 def get_events():
     events = Events.query.order_by(Events.id).all()  # Lấy tất cả dữ liệu từ bảng
     return jsonify([event.to_dict() for event in events])  # Trả về danh sách JSON
@@ -133,20 +135,6 @@ def adjust_event_id(event_id):
     except Exception as ex:
         return jsonify(str(ex))
 #13 chỉnh sửa status của người tham gia sự kiện
-# @event_bp.route('/events/<int:event_id>/users/<int:user_id>', methods=["PUT"])
-# def adjust_status_user_in_event(event_id, user_id):
-#     event_user = Event_User.query.filter_by(event_id=event_id, user_id=user_id).first()
-#     if not event_user:
-#         return jsonify({"error": "Người dùng không tham gia sự kiện"}), 404
-#     data = request.get_json()
-#     if "status" in data:
-#         event_user.status = data.get("status", event_user.status)
-#     try:
-#         db.session.commit()
-#         return jsonify({"message": "Đã sửa status thành công"}), 200
-#     except Exception as ex:
-#         db.session.rollback()
-#         return jsonify({"error": str(ex)}), 500
 @event_bp.route("/events/<int:event_id>/users/<int:user_id>", methods=["PUT"])
 
 def update_event_user(event_id, user_id):
@@ -363,90 +351,172 @@ def get_detail_user_from_detail_event(event_id,user_id):
 #         return jsonify({"Error": str(ex)}), 500  
 
 # 11. Cập nhật lại tiền cho mỗi người trong sự kiện
+# @event_bp.route("/events/<int:event_id>/users", methods=["PUT"])
+# def update_bill_due(event_id):
+#     # Kiểm tra sự kiện có tồn tại không
+#     event = Events.query.get(event_id)
+#     if not event:
+#         return jsonify({"error": "Không tìm thấy event"}), 404
+
+#     # Kiểm tra tổng tiền có hợp lệ không
+#     if event.total_bill is None or event.total_bill <= 0:
+#         return jsonify({"error": "Tổng tiền của sự kiện không hợp lệ"}), 400
+
+#     # Lấy danh sách người tham gia sự kiện
+#     event_users = Event_User.query.filter_by(event_id=event_id).all()
+#     total_users = len(event_users)
+
+#     if total_users == 0:
+#         return jsonify({"message": "Không có ai tham gia sự kiện"}), 200
+
+#     # Xử lý `bonus` và cập nhật `total_bill`
+#     total_bill = Decimal(event.total_bill)
+#     total_bill_origin= total_bill
+#     bonus_them = {}  # {user_id: bonus_amount}
+#     bonus_percent = {}  # {user_id: bonus_calculated}
+#     total_bonus_percent_users = 0
+    
+#     check_paid = True
+#     for user in event_users:
+#         if user.status.upper() =="unpaid":
+#             check_paid = False
+#         bonus_str= "0"
+#         if user.bonusthem!= 0:
+#             bonus_str = user.bonusthem.strip() 
+        
+#         if bonus_str.endswith("%"):  # Bonus dạng %
+#             try:
+#                 percent_value = Decimal(bonus_str.strip('%'))
+#                 bonus_amount = (total_bill_origin * percent_value) / Decimal(100)
+#                 bonus_percent[user.user_id] = bonus_amount
+#                 total_bonus_percent_users += 1
+#             except ValueError:
+#                 return jsonify({"error": f"Bonus không hợp lệ: {bonus_str}"}), 400
+#         else:  # Bonus là số thường
+#             try:
+#                 bonus_amount = Decimal(bonus_str)
+#                 bonus_them[user.user_id] = bonus_amount
+#             except ValueError:
+#                 return jsonify({"error": f"Bonus không hợp lệ: {bonus_str}"}), 400
+
+#         total_bill -= bonus_amount  # Trừ bonus ra khỏi tổng tiền
+    
+#     # Chia đều total_bill mới sau khi trừ bonus
+#     remaining_users = total_users - total_bonus_percent_users
+#     if remaining_users <= 0:
+#         return jsonify({"error": "Không thể chia tiền, số người còn lại không hợp lệ"}), 400
+#     if total_bill<0:
+#         total_bill=0
+#     bill_per_user = Decimal(total_bill / remaining_users)
+
+#     # Cập nhật lại `bill_due` cho từng user
+#     for user in event_users:
+#         if user.user_id in bonus_percent:
+#             user.bill_due = bonus_percent[user.user_id]  # Nhận số tiền từ bonus %
+#         elif user.user_id in bonus_them:
+#             user.bill_due = bill_per_user + bonus_them[user.user_id]  # Nhận số tiền từ bonus thường
+#         else:
+#             user.bill_due = max(bill_per_user, 0)  # Nếu bill_per_user < 0, đặt về 0
+#     # Cập nhật tổng thu và tiền thừa
+#     tong_thu =0
+#     tien_thua = 0
+#     for user in event_users:
+#         tong_thu += user.bill_due
+#     if tong_thu>total_bill_origin:
+#         tien_thua = tong_thu-total_bill_origin
+#     event.tong_thu= tong_thu
+#     event.tien_thua = tien_thua
+#     if check_paid:
+#         check_paid = True
+        
+#     try:
+#         db.session.commit()
+#         return jsonify({"message": "Đã cập nhật bill_due thành công"}), 200
+#     except Exception as ex:
+#         db.session.rollback()
+#         print("Lỗi cập nhật bill_due:", str(ex))  # Log lỗi để debug
+#         return jsonify({"error": "Lỗi khi cập nhật bill_due", "details": str(ex)}), 500
 @event_bp.route("/events/<int:event_id>/users", methods=["PUT"])
 def update_bill_due(event_id):
-    # Kiểm tra sự kiện có tồn tại không
     event = Events.query.get(event_id)
     if not event:
         return jsonify({"error": "Không tìm thấy event"}), 404
 
-    # Kiểm tra tổng tiền có hợp lệ không
     if event.total_bill is None or event.total_bill <= 0:
         return jsonify({"error": "Tổng tiền của sự kiện không hợp lệ"}), 400
 
-    # Lấy danh sách người tham gia sự kiện
     event_users = Event_User.query.filter_by(event_id=event_id).all()
     total_users = len(event_users)
 
     if total_users == 0:
         return jsonify({"message": "Không có ai tham gia sự kiện"}), 200
 
-    # Xử lý `bonus` và cập nhật `total_bill`
-    total_bill = Decimal(event.total_bill)
-    total_bill_origin= total_bill
-    bonus_them = {}  # {user_id: bonus_amount}
-    bonus_percent = {}  # {user_id: bonus_calculated}
-    total_bonus_percent_users = 0
+    total_bill_origin = Decimal(event.total_bill)
+    total_bill = total_bill_origin
+
+    bonus_percent = {}  # {user_id: số tiền bonus tính theo %}
+    bonus_fixed = {}    # {user_id: số tiền bonus dạng số}
+    total_percent_users = 0
+    total_fixed_users = 0
+
     check_paid = True
     for user in event_users:
-        if user.status.upper() =="unpaid":
+        if user.status.upper() == "UNPAID":
             check_paid = False
-        bonus_str= "0"
-        if user.bonusthem:
-            bonus_str = user.bonusthem.strip() 
-        
-        if bonus_str.endswith("%"):  # Bonus dạng %
+
+        bonus_str = (user.bonusthem or "0").strip()
+        bonus_amount = Decimal(0)
+
+        if bonus_str.endswith("%"):
             try:
                 percent_value = Decimal(bonus_str.strip('%'))
                 bonus_amount = (total_bill_origin * percent_value) / Decimal(100)
                 bonus_percent[user.user_id] = bonus_amount
-                total_bonus_percent_users += 1
-            except ValueError:
-                return jsonify({"error": f"Bonus không hợp lệ: {bonus_str}"}), 400
-        else:  # Bonus là số thường
+                total_percent_users += 1
+                total_bill -= bonus_amount
+            except Exception:
+                return jsonify({"error": f"Bonus % không hợp lệ: {bonus_str}"}), 400
+
+        elif bonus_str != "0":
             try:
                 bonus_amount = Decimal(bonus_str)
-                bonus_them[user.user_id] = bonus_amount
-            except ValueError:
-                return jsonify({"error": f"Bonus không hợp lệ: {bonus_str}"}), 400
+                bonus_fixed[user.user_id] = bonus_amount
+                total_fixed_users += 1
+                total_bill -= bonus_amount
+            except Exception:
+                return jsonify({"error": f"Bonus số không hợp lệ: {bonus_str}"}), 400
 
-        total_bill -= bonus_amount  # Trừ bonus ra khỏi tổng tiền
-    
-    # Chia đều total_bill mới sau khi trừ bonus
-    remaining_users = total_users - total_bonus_percent_users
+    remaining_users = total_users - total_percent_users - total_fixed_users
     if remaining_users <= 0:
         return jsonify({"error": "Không thể chia tiền, số người còn lại không hợp lệ"}), 400
-    if total_bill<0:
-        total_bill=0
-    bill_per_user = Decimal(total_bill / remaining_users)
 
-    # Cập nhật lại `bill_due` cho từng user
+    if total_bill < 0:
+        total_bill = Decimal(0)
+
+    bill_per_user = total_bill / remaining_users
+
     for user in event_users:
         if user.user_id in bonus_percent:
-            user.bill_due = bonus_percent[user.user_id]  # Nhận số tiền từ bonus %
-        elif user.user_id in bonus_them:
-            user.bill_due = bill_per_user + bonus_them[user.user_id]  # Nhận số tiền từ bonus thường
+            user.bill_due = bonus_percent[user.user_id]
+        elif user.user_id in bonus_fixed:
+            user.bill_due = bonus_fixed[user.user_id]
         else:
-            user.bill_due = max(bill_per_user, 0)  # Nếu bill_per_user < 0, đặt về 0
-    # Cập nhật tổng thu và tiền thừa
-    tong_thu =0
-    tien_thua = 0
-    for user in event_users:
-        tong_thu += user.bill_due
-    if tong_thu>total_bill_origin:
-        tien_thua = tong_thu-total_bill_origin
-    event.tong_thu= tong_thu
+            user.bill_due = bill_per_user
+
+    # Tổng thu & tiền thừa
+    tong_thu = sum([u.bill_due for u in event_users])
+    tien_thua = max(tong_thu - total_bill_origin, 0)
+
+    event.tong_thu = tong_thu
     event.tien_thua = tien_thua
-    if check_paid:
-        check_paid = True
-        
+
     try:
         db.session.commit()
         return jsonify({"message": "Đã cập nhật bill_due thành công"}), 200
     except Exception as ex:
         db.session.rollback()
-        print("Lỗi cập nhật bill_due:", str(ex))  # Log lỗi để debug
         return jsonify({"error": "Lỗi khi cập nhật bill_due", "details": str(ex)}), 500
+
 #12 gửi mail
 @event_bp.route('/events/send-email/<int:event_id>/<int:user_id>', methods=["POST"])
 def send_email(event_id,user_id):
