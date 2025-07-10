@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { register } from '../services/authService';
+import { Link } from 'react-router-dom';
 import {
   Container,
   TextField,
@@ -70,6 +71,17 @@ function RegisterPage() {
 
           <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 2 }}>
             Đăng ký
+          </Button>
+          <Button
+            component={Link}
+            to="/login"
+            variant="contained"
+            color="primary"
+
+            fullWidth
+            sx={{ mt: 2 }}
+          >
+            Đăng nhập
           </Button>
 
           {message && <Alert severity="success" sx={{ mt: 2 }}>{message}</Alert>}

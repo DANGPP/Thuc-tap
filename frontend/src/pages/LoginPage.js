@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../services/authService';
 import {
   Container,
@@ -80,7 +80,17 @@ function LoginPage() {
           >
             Đăng nhập
           </Button>
+          <Button
+            component={Link}
+            to="/register"
+            variant="contained"
+            color="primary"
 
+            fullWidth
+            sx={{ mt: 2 }}
+          >
+            Đăng Ký
+          </Button>
           {error && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {error}
